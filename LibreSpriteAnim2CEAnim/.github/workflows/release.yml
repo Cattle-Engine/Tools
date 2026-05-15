@@ -8,6 +8,9 @@ on:
 permissions:
   contents: write
 
+env:
+  PROJECT_DIR: LibreSpriteAnim2CEAnim
+
 jobs:
   build:
     name: Build ${{ matrix.os }}
@@ -31,16 +34,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Configure CMake
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S "${{ env.PROJECT_DIR }}" -B "${{ env.PROJECT_DIR }}/build" -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build --config Release
+        run: cmake --build "${{ env.PROJECT_DIR }}/build" --config Release
 
       - name: Package archive (Unix)
         if: runner.os != 'Windows'
         run: |
           mkdir -p dist
-          cp "build/${{ matrix.binary_name }}" dist/
+          cp "${{ env.PROJECT_DIR }}/build/${{ matrix.binary_name }}" dist/
           tar -czf "${{ matrix.archive_name }}.tar.gz" -C dist "${{ matrix.binary_name }}"
 
       - name: Package archive (Windows)
@@ -48,7 +51,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item "build/${{ matrix.binary_name }}" "dist/${{ matrix.binary_name }}"
+          Copy-Item "${{ env.PROJECT_DIR }}/build/${{ matrix.binary_name }}" "dist/${{ matrix.binary_name }}"
           Compress-Archive -Path "dist/${{ matrix.binary_name }}" -DestinationPath "${{ matrix.archive_name }}.zip" -Force
 
       - name: Upload workflow artifact
