@@ -1,0 +1,77 @@
+name: Release Builds
+
+on:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            archive_name: LibreSpriteAnim2CEAnim-linux-x86_64
+            binary_name: LibreSpriteAnim2CEAnim
+          - os: macos-latest
+            archive_name: LibreSpriteAnim2CEAnim-macos
+            binary_name: LibreSpriteAnim2CEAnim
+          - os: windows-latest
+            archive_name: LibreSpriteAnim2CEAnim-windows-x86_64
+            binary_name: LibreSpriteAnim2CEAnim.exe
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Package archive (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist
+          cp "build/${{ matrix.binary_name }}" dist/
+          tar -czf "${{ matrix.archive_name }}.tar.gz" -C dist "${{ matrix.binary_name }}"
+
+      - name: Package archive (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item "build/${{ matrix.binary_name }}" "dist/${{ matrix.binary_name }}"
+          Compress-Archive -Path "dist/${{ matrix.binary_name }}" -DestinationPath "${{ matrix.archive_name }}.zip" -Force
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.archive_name }}
+          path: |
+            ${{ matrix.archive_name }}.tar.gz
+            ${{ matrix.archive_name }}.zip
+          if-no-files-found: error
+
+  publish:
+    name: Upload Release Assets
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+
+      - name: Attach artifacts to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/**/*
